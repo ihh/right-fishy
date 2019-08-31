@@ -1,6 +1,6 @@
 var rand = Math.random
 
-var fishy, popbar
+var fishy, bubbles, popbar
 var paramList = [ { name: 'popSize', value: 100, label: 'Population size' },
                   { name: 'genotypes', value: 200, label: '#Genotypes' },
                   { name: 'mutProb', value: .005, label: 'P(mutation)' },
@@ -9,6 +9,7 @@ var params = {}
 paramList.forEach ((p) => { params[p.name] = p })
 window.onload = () => {
   fishy = $('.fishy')
+  bubbles = $('.bubbles')
   var paramContainer = $('<div class="params">')
   fishy.append (popbar = $('<div class="popbar">'),
                 paramContainer,
@@ -66,13 +67,53 @@ var sum = (counts) => counts.reduce ((t, c) => t + c, 0)
 var fillPopBar = (popbar, counts) => {
   var popSize = sum (counts)
   var totalGenotypes = counts.length
+  var hues = counts.map ((count, genotype) => '#' + rgbToHex (hsvToRgb (totalGenotypes ? (genotype / totalGenotypes) : 0, 1, 1)))
   popbar.empty()
   counts.forEach ((count, genotype) => {
-    var hue = totalGenotypes ? (genotype / totalGenotypes) : 0
     popbar.append ($('<div class="bar">')
                    .css ('width', (100 * count / popSize).toFixed(5) + '%')
-                   .css ('background-color', '#' + rgbToHex (hsvToRgb (hue, 1, 1))))
+                   .css ('background-color', hues[genotype]))
   })
+  if (bubbles.length)
+    fillBubbles (counts, hues)
+}
+
+var fillBubbles = (counts, hues) => {
+  // adapted from https://bl.ocks.org/alokkshukla/3d6be4be0ef9f6977ec6718b2916d168
+  var d3color = d3.scaleOrdinal(hues);
+  var dataset = { children: counts.map ((count) => ({ Count: count })) }
+  var diameter = 600;
+  var bubble = d3.pack(dataset)
+      .size([diameter, diameter])
+      .padding(1.5);
+  bubbles.empty()
+  var svg = d3.select(".bubbles")
+      .append("svg")
+      .attr("width", diameter)
+      .attr("height", diameter)
+      .attr("class", "bubble");
+  var nodes = d3.hierarchy(dataset)
+      .sum(function(d) { return d.Count; });
+
+  var node = svg.selectAll(".node")
+      .data(bubble(nodes).descendants())
+      .enter()
+      .filter(function(d){
+        return  !d.children
+      })
+      .append("g")
+      .attr("class", "node")
+      .attr("transform", function(d) {
+        return "translate(" + d.x + "," + d.y + ")";
+      });
+
+  node.append("circle")
+    .attr("r", function(d) {
+      return d.r;
+    })
+    .style("fill", function(d,i) {
+      return hues[i];
+    });
 }
 
 var updateCounts = (counts) => {
