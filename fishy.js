@@ -1,19 +1,24 @@
 var rand = Math.random
 
-var fishy, bubbles, popbar
-var paramList = [ { name: 'popSize', value: 100, label: 'Population size' },
+var fishy, mainland, islands = [], islandsContainer
+var paramList = [ { name: 'popSize', value: 10000, label: 'Population size' },
                   { name: 'genotypes', value: 200, label: '#Genotypes' },
-                  { name: 'mutProb', value: .005, label: 'P(mutation)' },
-                  { name: 'gensPerSec', value: 100, label: 'Generations/sec' } ]
+                  { name: 'mutProb', value: .0002, label: 'P(mutation)' },
+                  { name: 'gensPerSec', value: 1000, label: 'Generations/sec' },
+                  { name: 'islands', value: 4, label: '#Islands', update: rebuildIslands },
+                  { name: 'islandPopSize', value: 100, label: 'Island pop. size' },
+                  { name: 'migProb', value: .005, label: 'P(migration)' } ]
 var params = {}
 paramList.forEach ((p) => { params[p.name] = p })
 window.onload = () => {
   fishy = $('.fishy')
-  bubbles = $('.bubbles')
   var paramContainer = $('<div class="params">')
-  fishy.append (bubbles = $('<div class="bubbles">'),
-                popbar = $('<div class="popbar">'),
-                paramContainer,
+  mainland = makeDeme ('mainland', 'Mainland', [0])
+  fishy.append ($('<div class="simulation">')
+                .append ($('<div class="main">')
+                         .append (mainland.container,
+                                  paramContainer),
+                         islandsContainer = $('<div class="islands">')),
                 $('<a href="https://github.com/ihh/right-fishy">').text('Source'))
   paramList.forEach ((param) => {
     paramContainer.append ($('<div class="param">')
@@ -21,12 +26,36 @@ window.onload = () => {
                                     param.input = $('<input type="number">').val (param.value)))
     var updateValue = () => {
       param.value = parseFloat (param.input.val())
+      if (param.update)
+        param.update()
       update()
     };
     param.input.keyup (updateValue)
     param.input.click (updateValue)
   })
+  rebuildIslands()
   update()
+}
+
+var makeDeme = (className, title, initPop) => {
+  var container, bubbles, popbar
+  container = $('<div class="deme">')
+    .addClass (className)
+    .append ($('<span class="title">').text (title),
+             bubbles = $('<div class="bubbles">'),
+             popbar = $('<div class="popbar">'))
+  return { container, bubbles, popbar,
+           pop: initPop || [], counts: [], parent: [] }
+}
+
+function rebuildIslands() {
+  islands = []
+  islandsContainer.empty()
+  for (var i = 0; i < params.islands.value; ++i) {
+    var island = makeDeme ('island', 'Island #' + (i+1))
+    islands.push (island)
+    islandsContainer.append (island.container)
+  }
 }
 
 // http://axonflux.com/handy-rgb-to-hsl-and-rgb-to-hsv-color-model-c
@@ -75,8 +104,8 @@ var fillPopBar = (popbar, counts, hues) => {
   })
 }
 
-var fillBubbles = (container, counts, hues) => {
-  var diameter = container.width()
+var fillBubbles = (bubbles, counts, hues) => {
+  var diameter = bubbles.width()
   var sortedGenotype = counts.map ((c,n) => n).sort ((a,b) => counts[b] - counts[a])
   // adapted from https://bl.ocks.org/alokkshukla/3d6be4be0ef9f6977ec6718b2916d168
   var d3color = d3.scaleOrdinal(hues);
@@ -85,7 +114,7 @@ var fillBubbles = (container, counts, hues) => {
       .size([diameter, diameter])
       .padding(1.5);
   bubbles.empty()
-  var svg = d3.select(container.get(0))
+  var svg = d3.select(bubbles.get(0))
       .append("svg")
       .attr("width", diameter)
       .attr("height", diameter)
@@ -121,10 +150,8 @@ var resizeArray = (array, newSize, defaultVal) => {
     array.push.apply (array, new Array (newSize - array.length))
 }
 
-var updateCounts = (counts, pop, parent) => {
+var updateCounts = (counts, pop, parent, newPopSize, mutProb, newMutant) => {
   var genotypes = params.genotypes.value
-  var mutProb = params.mutProb.value
-  var newPopSize = params.popSize.value
   var oldPopSize = pop.length
   var oldPop = pop.slice(0)
   resizeArray (counts, genotypes)
@@ -133,34 +160,50 @@ var updateCounts = (counts, pop, parent) => {
   resizeArray (parent, newPopSize)
   parent.forEach ((_dummy, n) => {
     parent[n] = ((!oldPopSize || rand() < mutProb)
-                 ? undefined  // signifies mutation
+                 ? null  // signifies mutation
                  : Math.floor (rand() * oldPopSize))
   })
   parent.forEach ((p, n) => {
-    var type = (typeof(p) === 'undefined'
-                ? Math.floor (rand() * genotypes)
+    var type = (p === null
+                ? newMutant()
                 : oldPop[p] % genotypes)
     pop[n] = type
     ++counts[type]
   })
 }
 
-var getHues = (counts) => {
-  var totalGenotypes = counts.length
-  return counts.map ((count, genotype) => '#' + rgbToHex (hsvToRgb (totalGenotypes ? (genotype / totalGenotypes) : 0, 1, 1)))
+var getHues = (totalGenotypes) => {
+  return new Array (totalGenotypes).fill(0).map ((_c, genotype) => '#' + rgbToHex (hsvToRgb (totalGenotypes ? (genotype / totalGenotypes) : 0, 1, 1)))
 }
 
-var pop = [0], counts = [], parent = [], generation = 0
+var redrawDeme = (deme, hues) => {
+  fillPopBar (deme.popbar, deme.counts, hues)
+  fillBubbles (deme.bubbles, deme.counts, hues)
+}
+
+var generation = 0
 var timer
 var update = () => {
+  var genotypes = params.genotypes.value
   var gensPerSec = params.gensPerSec.value
   for (var iter = 0; iter < Math.ceil (gensPerSec / 1000); ++iter) {
     ++generation
-    updateCounts (counts, pop, parent)
+    updateCounts (mainland.counts,
+                  mainland.pop,
+                  mainland.parent,
+                  params.popSize.value,
+                  params.mutProb.value,
+                  () => Math.floor (rand() * genotypes))
+    islands.forEach ((island) => updateCounts (island.counts,
+                                               island.pop,
+                                               island.parent,
+                                               params.islandPopSize.value,
+                                               params.migProb.value,
+                                               () => mainland.pop[Math.floor (rand() * mainland.pop.length)]))
   }
-  var hues = getHues (counts)
-  fillPopBar (popbar, counts, hues)
-  fillBubbles (bubbles, counts, hues)
+  var hues = getHues (genotypes)
+  redrawDeme (mainland, hues)
+  islands.forEach ((island) => redrawDeme (island, hues))
   if (timer)
     window.clearTimeout (timer)
   if (gensPerSec) {

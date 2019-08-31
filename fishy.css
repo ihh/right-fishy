@@ -2,56 +2,93 @@ body {
     background: white;
 }
 
-.fishy {
+.simulation {
     position: relative;
-    width: 400px;
+    width: 100%;
+
+    display: flex;
+    flex-direction: horizontal;
 }
 
-.fishy .popbar {
-    width: 100%;
+.main {
+    width: 500px;
+    margin-right: 10px;
+}
+
+.islands {
+    width: 100px;
+}
+
+.deme {
+    position: relative;
+    font-size: small;
+}
+
+.island {
+    border-style: solid;
+    border-width: 1px;
+    border-color: black;
+    margin-bottom: 4px;
+}
+
+.deme .title {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    background-color: rgba(255,255,255,.5);
+}
+
+.mainland .popbar {
     height: 100px;
+    padding: 10px;
+}
+
+.island .popbar {
+    height: 25px;
+    padding: 3px;
+}
+
+.popbar {
     position: relative;
 
     display: flex;
     flex-direction: row;
    
-    border-style: solid;
-    border-width: 10px;
-    border-color: black;
     background-color: black;
 }
 
-.fishy .popbar .bar {
+.popbar .bar {
     height: 100%;
     background-color: red;
 }
 
-.fishy .params {
+.params {
     width: 400px;
     margin-top: 20px;
     display: flex;
     flex-direction: column;
 }
 
-.fishy .params .param {
+.params .param {
     width: 100%;
     display: flex;
     flex-direction: row;
 }
 
-.fishy .params .param .label {
+.params .param .label {
     width: 160px;
     text-align: right;
 }
 
-.fishy .params .param input {
+.params .param input {
     margin-left: 20px;
-}
-
-.fishy a {
-    font-size: small;
 }
 
 .bubbles {
     width: 100%;
+}
+
+.fishy a {
+    font-size: small;
 }
