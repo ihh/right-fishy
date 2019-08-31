@@ -94,21 +94,25 @@ var rgbToHex = (rgb) => rgb.reduce ((hex, n) => hex + (n < 16 ? '0' : '') + n.to
 
 var sum = (counts) => counts.reduce ((t, c) => t + c, 0)
 
-var fillPopBar = (popbar, counts, hues) => {
+var fillPopBar = (popbar, counts, colors, hues) => {
   var popSize = sum (counts)
   popbar.empty()
-  counts.forEach ((count, genotype) => {
-    popbar.append ($('<div class="bar">')
-                   .css ('width', (100 * count / popSize).toFixed(5) + '%')
-                   .css ('background-color', hues[genotype]))
-  })
+  counts
+    .map ((_c, n) => n)
+    .sort ((a, b) => hues[a] - hues[b])
+    .forEach ((genotype) => {
+      var count = counts[genotype]
+      popbar.append ($('<div class="bar">')
+                     .css ('width', (100 * count / popSize).toFixed(5) + '%')
+                     .css ('background-color', colors[genotype]))
+    })
 }
 
-var fillBubbles = (bubbles, counts, hues) => {
+var fillBubbles = (bubbles, counts, colors) => {
   var diameter = bubbles.width()
   var sortedGenotype = counts.map ((c,n) => n).sort ((a,b) => counts[b] - counts[a])
   // adapted from https://bl.ocks.org/alokkshukla/3d6be4be0ef9f6977ec6718b2916d168
-  var d3color = d3.scaleOrdinal(hues);
+  var d3color = d3.scaleOrdinal(colors);
   var dataset = { children: sortedGenotype.map ((g) => ({ Count: counts[g] })) }
   var bubble = d3.pack(dataset)
       .size([diameter, diameter])
@@ -139,7 +143,7 @@ var fillBubbles = (bubbles, counts, hues) => {
       return d.r;
     })
     .style("fill", function(d,i) {
-      return hues[sortedGenotype[i]];
+      return colors[sortedGenotype[i]];
     });
 }
 
@@ -177,15 +181,16 @@ var getHues = (totalGenotypes) => {
   var bits = Math.ceil (Math.log(totalGenotypes) / log2), norm = 2 << bits
   return new Array (totalGenotypes).fill(0).map ((_c, genotype) => {
     var hue = 0
-    for (var b = 0, h = 1 << (bits - 1); b < bits; ++b, h >>= 1, genotype >>= 1)
-      hue += h * (genotype & 1)
-    return '#' + rgbToHex (hsvToRgb (hue / norm, 1, 1))
+    for (var b = 0; b < bits; ++b, hue <<= 1, genotype >>= 1)
+      hue |= genotype & 1
+    return hue / norm
   })
 }
+var huesToColors = (hues) => hues.map ((hue) => '#' + rgbToHex (hsvToRgb (hue, 1, 1)))
 
-var redrawDeme = (deme, hues) => {
-  fillPopBar (deme.popbar, deme.counts, hues)
-  fillBubbles (deme.bubbles, deme.counts, hues)
+var redrawDeme = (deme, colors, hues) => {
+  fillPopBar (deme.popbar, deme.counts, colors, hues)
+  fillBubbles (deme.bubbles, deme.counts, colors)
 }
 
 var generation = 0
@@ -209,8 +214,9 @@ var update = () => {
                                                () => mainland.pop[Math.floor (rand() * mainland.pop.length)]))
   }
   var hues = getHues (genotypes)
-  redrawDeme (mainland, hues)
-  islands.forEach ((island) => redrawDeme (island, hues))
+  var colors = huesToColors (hues)
+  redrawDeme (mainland, colors, hues)
+  islands.forEach ((island) => redrawDeme (island, colors, hues))
   if (timer)
     window.clearTimeout (timer)
   if (gensPerSec) {
