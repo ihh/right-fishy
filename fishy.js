@@ -2,7 +2,7 @@ var rand = Math.random
 
 var fishy, mainland, islands = [], islandsContainer
 var paramList = [ { name: 'popSize', value: 10000, label: 'Population size' },
-                  { name: 'genotypes', value: 200, label: '#Genotypes' },
+                  { name: 'genotypes', value: 200, label: '#Alleles' },
                   { name: 'mutProb', value: .0002, label: 'P(mutation)' },
                   { name: 'gensPerSec', value: 1000, label: 'Generations/sec' },
                   { name: 'islands', value: 4, label: '#Islands', update: rebuildIslands },
@@ -38,14 +38,23 @@ window.onload = () => {
 }
 
 var makeDeme = (className, title, initPop) => {
-  var container, bubbles, popbar
-  container = $('<div class="deme">')
+  var bubbles, popbar
+  var titleSpan = $('<span class="title">')
+  var deme = { pop: initPop || [],
+               counts: [],
+               parent: [],
+               title }
+  deme.container = $('<div class="deme">')
     .addClass (className)
-    .append ($('<span class="title">').text (title),
-             bubbles = $('<div class="bubbles">'),
-             popbar = $('<div class="popbar">'))
-  return { container, bubbles, popbar,
-           pop: initPop || [], counts: [], parent: [] }
+    .append (titleSpan
+             .text (title)
+             .click (() => {
+               deme.paused = !deme.paused
+               titleSpan.text (deme.title + (deme.paused ? ' (Paused)' : ''))
+             }),
+             deme.bubbles = $('<div class="bubbles">'),
+             deme.popbar = $('<div class="popbar">'))
+  return deme
 }
 
 function rebuildIslands() {
@@ -154,26 +163,78 @@ var resizeArray = (array, newSize, defaultVal) => {
     array.push.apply (array, new Array (newSize - array.length))
 }
 
-var updateCounts = (counts, pop, parent, newPopSize, mutProb, newMutant) => {
-  var genotypes = params.genotypes.value || 1
-  var oldPopSize = pop.length
-  var oldPop = pop.slice(0)
-  resizeArray (counts, genotypes)
-  counts.fill(0)
-  resizeArray (pop, newPopSize)
-  resizeArray (parent, newPopSize)
-  parent.forEach ((_dummy, n) => {
-    parent[n] = ((!oldPopSize || rand() < mutProb)
-                 ? null  // signifies mutation
-                 : Math.floor (rand() * oldPopSize))
-  })
-  parent.forEach ((p, n) => {
-    var type = (p === null
-                ? newMutant()
-                : (oldPop[p] % genotypes))
-    pop[n] = type
-    ++counts[type]
-  })
+var updateDeme = (deme, newPopSize, mutProb, newMutant, time) => {
+  if (!deme.paused) {
+    var counts = deme.counts
+    var pop = deme.pop
+    var genotypes = params.genotypes.value || 1
+    var oldPopSize = pop.length
+    var oldPop = pop.slice(0)
+    resizeArray (counts, genotypes)
+    counts.fill(0)
+    resizeArray (pop, newPopSize)
+    var coalChildren = new Array(oldPopSize).fill(null)
+    var newParent = pop.map ((_dummy, n) => {
+      if (!oldPopSize || rand() < mutProb) {
+        return null  // signifies mutation
+      } else {
+        var p = Math.floor (rand() * oldPopSize)
+        var cc = coalChildren[p]
+        if (cc === null || typeof(cc) === 'undefined')
+          coalChildren[p] = n
+        else if (typeof(cc) === 'number')  // first coalescence
+          coalChildren[p] = [cc, n]
+        else
+          cc.push (n)
+        return p
+      }
+    })
+    newParent.forEach ((p, n) => {
+      var type = (p === null
+                  ? newMutant()
+                  : (oldPop[p] % genotypes))
+      pop[n] = type
+      ++counts[type]
+    })
+
+    // log
+    deme.countsHistory = deme.countsHistory || []
+    deme.countsHistory.push (counts.slice(0))
+
+    var lastCoalHistory = deme.coalHistory || null
+    var coalEvents = [], coalByParent = {}
+    deme.coalHistory = newParent.map ((p, n) => {
+      if (p === null)
+        return { time,
+                 isMutation: true }
+      var cc = coalChildren[p]
+      var parentEvent = lastCoalHistory && lastCoalHistory[p]
+      if (typeof(cc) === 'number') {  // no coalescence this generation
+        coalByParent[p] = parentEvent
+        return parentEvent
+      } else {
+        if (!coalByParent[p]) {  // only create coalescence object once; use parent as key
+          var newEvent = { time,
+                           isCoalescence: true,
+                           lineages: cc.length,
+                           activeLineages: cc.length,
+                           parent: parentEvent }
+          coalByParent[p] = newEvent
+        }
+        return coalByParent[p]
+      }
+    })
+    if (lastCoalHistory)
+      lastCoalHistory.forEach ((parentEvent, p) => {
+        if (!coalByParent[p])  // node p in the previous generation had no children; deplete the active lineage count
+          while (parentEvent && parentEvent.isCoalescence) {
+            var active = --parentEvent.activeLineages
+            if (active)
+              break
+            parentEvent = parentEvent.parent
+          }
+      })
+  }
 }
 
 var log2 = Math.log(2)
@@ -200,18 +261,16 @@ var update = () => {
   var gensPerSec = params.gensPerSec.value
   for (var iter = 0; iter < Math.ceil (gensPerSec / 1000); ++iter) {
     ++generation
-    updateCounts (mainland.counts,
-                  mainland.pop,
-                  mainland.parent,
-                  params.popSize.value,
-                  params.mutProb.value,
-                  () => Math.floor (rand() * genotypes))
-    islands.forEach ((island) => updateCounts (island.counts,
-                                               island.pop,
-                                               island.parent,
-                                               params.islandPopSize.value,
-                                               params.migProb.value,
-                                               () => mainland.pop[Math.floor (rand() * mainland.pop.length)]))
+    updateDeme (mainland,
+                params.popSize.value,
+                params.mutProb.value,
+                () => Math.floor (rand() * genotypes),
+                generation)
+    islands.forEach ((island) => updateDeme (island,
+                                             params.islandPopSize.value,
+                                             params.migProb.value,
+                                             () => mainland.pop[Math.floor (rand() * mainland.pop.length)],
+                                             generation))
   }
   var hues = getHues (genotypes)
   var colors = huesToColors (hues)
