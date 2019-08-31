@@ -3,10 +3,12 @@ body {
 }
 
 .fishy {
+    position: relative;
+    width: 400px;
 }
 
 .fishy .popbar {
-    width: 640px;
+    width: 100%;
     height: 100px;
     position: relative;
 
@@ -48,4 +50,8 @@ body {
 
 .fishy a {
     font-size: small;
+}
+
+.bubbles {
+    width: 100%;
 }

@@ -11,7 +11,8 @@ window.onload = () => {
   fishy = $('.fishy')
   bubbles = $('.bubbles')
   var paramContainer = $('<div class="params">')
-  fishy.append (popbar = $('<div class="popbar">'),
+  fishy.append (bubbles = $('<div class="bubbles">'),
+                popbar = $('<div class="popbar">'),
                 paramContainer,
                 $('<a href="https://github.com/ihh/right-fishy">').text('Source'))
   paramList.forEach ((param) => {
@@ -64,31 +65,27 @@ var rgbToHex = (rgb) => rgb.reduce ((hex, n) => hex + (n < 16 ? '0' : '') + n.to
 
 var sum = (counts) => counts.reduce ((t, c) => t + c, 0)
 
-var fillPopBar = (popbar, counts) => {
+var fillPopBar = (popbar, counts, hues) => {
   var popSize = sum (counts)
-  var totalGenotypes = counts.length
-  var hues = counts.map ((count, genotype) => '#' + rgbToHex (hsvToRgb (totalGenotypes ? (genotype / totalGenotypes) : 0, 1, 1)))
   popbar.empty()
   counts.forEach ((count, genotype) => {
     popbar.append ($('<div class="bar">')
                    .css ('width', (100 * count / popSize).toFixed(5) + '%')
                    .css ('background-color', hues[genotype]))
   })
-  if (bubbles.length)
-    fillBubbles (counts, hues)
 }
 
-var fillBubbles = (counts, hues) => {
+var fillBubbles = (container, counts, hues) => {
+  var diameter = container.width()
   var sortedGenotype = counts.map ((c,n) => n).sort ((a,b) => counts[b] - counts[a])
   // adapted from https://bl.ocks.org/alokkshukla/3d6be4be0ef9f6977ec6718b2916d168
   var d3color = d3.scaleOrdinal(hues);
   var dataset = { children: sortedGenotype.map ((g) => ({ Count: counts[g] })) }
-  var diameter = 600;
   var bubble = d3.pack(dataset)
       .size([diameter, diameter])
       .padding(1.5);
   bubbles.empty()
-  var svg = d3.select(".bubbles")
+  var svg = d3.select(container.get(0))
       .append("svg")
       .attr("width", diameter)
       .attr("height", diameter)
@@ -148,12 +145,19 @@ var updateCounts = (counts, pop, parent) => {
   })
 }
 
-var counts = [], pop = [], parent = [], generation = 0
+var getHues = (counts) => {
+  var totalGenotypes = counts.length
+  return counts.map ((count, genotype) => '#' + rgbToHex (hsvToRgb (totalGenotypes ? (genotype / totalGenotypes) : 0, 1, 1)))
+}
+
+var pop = [0], counts = [], parent = [], generation = 0
 var timer
 var update = () => {
   ++generation
   updateCounts (counts, pop, parent)
-  fillPopBar (popbar, counts)
+  var hues = getHues (counts)
+  fillPopBar (popbar, counts, hues)
+  fillBubbles (bubbles, counts, hues)
   var delay = params.gensPerSec.value > 0 ? Math.ceil (1000 / params.gensPerSec.value) : 1
   if (timer)
     window.clearTimeout (timer)
