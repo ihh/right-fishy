@@ -117,34 +117,42 @@ var fillBubbles = (counts, hues) => {
     });
 }
 
-var updateCounts = (counts) => {
-  var genotypes = params.genotypes.value
-  var newPopSize = params.popSize.value
-  var mutProb = params.mutProb.value
-  if (counts.length > genotypes)  
-    counts.splice (genotypes, counts.length - genotypes)
+var resizeArray = (array, newSize, defaultVal) => {
+  if (array.length > newSize)
+    array.splice (newSize, array.length - newSize)
   else
-    counts.push.apply (counts, new Array (genotypes - counts.length).fill(0))
-  var oldPop = counts.reduce ((pop, genpop, g) => pop.concat (new Array(genpop).fill(g)),
-                              [])
-  var oldPopSize = oldPop.length
-  for (var i = 0; i < genotypes; ++i)
-    counts[i] = 0
-  for (var n = 0; n < newPopSize; ++n) {
-    if (rand() < mutProb)
-      ++counts[Math.floor (rand() * genotypes)]
-    else if (oldPopSize)
-      ++counts[oldPop[Math.floor (rand() * oldPopSize)]]
-    else if (genotypes)
-      ++counts[0]
-  }
+    array.push.apply (array, new Array (newSize - array.length))
 }
 
-var counts = [], generation = 0
+var updateCounts = (counts, pop, parent) => {
+  var genotypes = params.genotypes.value
+  var mutProb = params.mutProb.value
+  var newPopSize = params.popSize.value
+  var oldPopSize = pop.length
+  var oldPop = pop.slice(0)
+  resizeArray (counts, genotypes)
+  counts.fill(0)
+  resizeArray (pop, newPopSize)
+  resizeArray (parent, newPopSize)
+  parent.forEach ((_dummy, n) => {
+    parent[n] = ((!oldPopSize || rand() < mutProb)
+                 ? undefined  // signifies mutation
+                 : Math.floor (rand() * oldPopSize))
+  })
+  parent.forEach ((p, n) => {
+    var type = (typeof(p) === 'undefined'
+                ? Math.floor (rand() * genotypes)
+                : oldPop[p] % genotypes)
+    pop[n] = type
+    ++counts[type]
+  })
+}
+
+var counts = [], pop = [], parent = [], generation = 0
 var timer
 var update = () => {
   ++generation
-  updateCounts (counts)
+  updateCounts (counts, pop, parent)
   fillPopBar (popbar, counts)
   var delay = params.gensPerSec.value > 0 ? Math.ceil (1000 / params.gensPerSec.value) : 1
   if (timer)
