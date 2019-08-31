@@ -79,9 +79,10 @@ var fillPopBar = (popbar, counts) => {
 }
 
 var fillBubbles = (counts, hues) => {
+  var sortedGenotype = counts.map ((c,n) => n).sort ((a,b) => counts[b] - counts[a])
   // adapted from https://bl.ocks.org/alokkshukla/3d6be4be0ef9f6977ec6718b2916d168
   var d3color = d3.scaleOrdinal(hues);
-  var dataset = { children: counts.map ((count) => ({ Count: count })) }
+  var dataset = { children: sortedGenotype.map ((g) => ({ Count: counts[g] })) }
   var diameter = 600;
   var bubble = d3.pack(dataset)
       .size([diameter, diameter])
@@ -112,7 +113,7 @@ var fillBubbles = (counts, hues) => {
       return d.r;
     })
     .style("fill", function(d,i) {
-      return hues[i];
+      return hues[sortedGenotype[i]];
     });
 }
 
