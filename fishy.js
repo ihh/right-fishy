@@ -153,14 +153,19 @@ var getHues = (counts) => {
 var pop = [0], counts = [], parent = [], generation = 0
 var timer
 var update = () => {
-  ++generation
-  updateCounts (counts, pop, parent)
+  var gensPerSec = params.gensPerSec.value
+  for (var iter = 0; iter < Math.ceil (gensPerSec / 1000); ++iter) {
+    ++generation
+    updateCounts (counts, pop, parent)
+  }
   var hues = getHues (counts)
   fillPopBar (popbar, counts, hues)
   fillBubbles (bubbles, counts, hues)
-  var delay = params.gensPerSec.value > 0 ? Math.ceil (1000 / params.gensPerSec.value) : 1
   if (timer)
     window.clearTimeout (timer)
-  timer = window.setTimeout (update, delay)
+  if (gensPerSec) {
+    var delay = params.gensPerSec.value > 0 ? Math.ceil (1000 / gensPerSec) : 1
+    timer = window.setTimeout (update, delay)
+  }
 }
 
