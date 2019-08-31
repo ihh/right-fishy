@@ -151,7 +151,7 @@ var resizeArray = (array, newSize, defaultVal) => {
 }
 
 var updateCounts = (counts, pop, parent, newPopSize, mutProb, newMutant) => {
-  var genotypes = params.genotypes.value
+  var genotypes = params.genotypes.value || 1
   var oldPopSize = pop.length
   var oldPop = pop.slice(0)
   resizeArray (counts, genotypes)
@@ -166,14 +166,21 @@ var updateCounts = (counts, pop, parent, newPopSize, mutProb, newMutant) => {
   parent.forEach ((p, n) => {
     var type = (p === null
                 ? newMutant()
-                : oldPop[p] % genotypes)
+                : (oldPop[p] % genotypes))
     pop[n] = type
     ++counts[type]
   })
 }
 
+var log2 = Math.log(2)
 var getHues = (totalGenotypes) => {
-  return new Array (totalGenotypes).fill(0).map ((_c, genotype) => '#' + rgbToHex (hsvToRgb (totalGenotypes ? (genotype / totalGenotypes) : 0, 1, 1)))
+  var bits = Math.ceil (Math.log(totalGenotypes) / log2), norm = 2 << bits
+  return new Array (totalGenotypes).fill(0).map ((_c, genotype) => {
+    var hue = 0
+    for (var b = 0, h = 1 << (bits - 1); b < bits; ++b, h >>= 1, genotype >>= 1)
+      hue += h * (genotype & 1)
+    return '#' + rgbToHex (hsvToRgb (hue / norm, 1, 1))
+  })
 }
 
 var redrawDeme = (deme, hues) => {
@@ -184,7 +191,7 @@ var redrawDeme = (deme, hues) => {
 var generation = 0
 var timer
 var update = () => {
-  var genotypes = params.genotypes.value
+  var genotypes = params.genotypes.value || 1
   var gensPerSec = params.gensPerSec.value
   for (var iter = 0; iter < Math.ceil (gensPerSec / 1000); ++iter) {
     ++generation
