@@ -41,12 +41,12 @@ body {
 
 .mainland .popbar {
     height: 100px;
-    padding: 10px;
+    padding: 5px;
 }
 
 .island .popbar {
     height: 25px;
-    padding: 3px;
+    padding: 1px;
 }
 
 .popbar {
