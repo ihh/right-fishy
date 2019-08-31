@@ -45,3 +45,7 @@ body {
 .fishy .params .param input {
     margin-left: 20px;
 }
+
+.fishy a {
+    font-size: small;
+}

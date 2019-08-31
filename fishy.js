@@ -11,7 +11,8 @@ window.onload = () => {
   fishy = $('.fishy')
   var paramContainer = $('<div class="params">')
   fishy.append (popbar = $('<div class="popbar">'),
-                paramContainer)
+                paramContainer,
+                $('<a href="https://github.com/ihh/right-fishy">').text('Source'))
   paramList.forEach ((param) => {
     paramContainer.append ($('<div class="param">')
                            .append ($('<div class="label">').text (param.label),
