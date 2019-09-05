@@ -41,7 +41,6 @@ var makeDeme = (className, title, initPop) => {
   var bubbles, popbar
   var titleSpan = $('<span class="title">')
   var deme = { pop: initPop || [],
-               counts: [],
                parent: [],
                title }
   deme.container = $('<div class="deme">')
@@ -53,7 +52,8 @@ var makeDeme = (className, title, initPop) => {
                titleSpan.text (deme.title + (deme.paused ? ' (Paused)' : ''))
              }),
              deme.bubbles = $('<div class="bubbles">'),
-             deme.popbar = $('<div class="popbar">'))
+	     deme.popbarContainer = $('<div class="popbar">')
+             .append (deme.popbar = $('<canvas>')))
   return deme
 }
 
@@ -103,17 +103,25 @@ var rgbToHex = (rgb) => rgb.reduce ((hex, n) => hex + (n < 16 ? '0' : '') + n.to
 
 var sum = (counts) => counts.reduce ((t, c) => t + c, 0)
 
-var fillPopBar = (popbar, counts, colors, hues) => {
+var fillPopBar = (canvas, counts, colors, hues) => {
   var popSize = sum (counts)
-  popbar.empty()
+  var container = canvas.parent()
+  var width = container.width(), height = container.height()
+  canvas.attr ('width', width)
+  canvas.attr ('height', height)
+  var context = canvas.get(0).getContext('2d')
+  var x = 0
   counts
     .map ((_c, n) => n)
     .sort ((a, b) => hues[a] - hues[b])
     .forEach ((genotype) => {
       var count = counts[genotype]
-      popbar.append ($('<div class="bar">')
-                     .css ('width', (100 * count / popSize).toFixed(5) + '%')
-                     .css ('background-color', colors[genotype]))
+      if (count > 0) {
+	var w = width * count / popSize
+	context.fillStyle = colors[genotype]
+	context.fillRect (x, 0, w, height)
+	x += w
+      }
     })
 }
 
@@ -165,13 +173,10 @@ var resizeArray = (array, newSize, defaultVal) => {
 
 var updateDeme = (deme, newPopSize, mutProb, newMutant, time) => {
   if (!deme.paused) {
-    var counts = deme.counts
     var pop = deme.pop
     var genotypes = params.genotypes.value || 1
     var oldPopSize = pop.length
     var oldPop = pop.slice(0)
-    resizeArray (counts, genotypes)
-    counts.fill(0)
     resizeArray (pop, newPopSize)
     var coalChildren = new Array(oldPopSize).fill(null)
     var newParent = pop.map ((_dummy, n) => {
@@ -194,13 +199,9 @@ var updateDeme = (deme, newPopSize, mutProb, newMutant, time) => {
                   ? newMutant()
                   : (oldPop[p] % genotypes))
       pop[n] = type
-      ++counts[type]
     })
 
     // log
-    deme.countsHistory = deme.countsHistory || []
-    deme.countsHistory.push (counts.slice(0))
-
     var lastCoalHistory = deme.coalHistory || null
     var coalEvents = [], coalByParent = {}
     deme.coalHistory = newParent.map ((p, n) => {
@@ -250,8 +251,11 @@ var getHues = (totalGenotypes) => {
 var huesToColors = (hues) => hues.map ((hue) => '#' + rgbToHex (hsvToRgb (hue, 1, 1)))
 
 var redrawDeme = (deme, colors, hues) => {
-  fillPopBar (deme.popbar, deme.counts, colors, hues)
-  fillBubbles (deme.bubbles, deme.counts, colors)
+  var genotypes = params.genotypes.value || 1
+  var counts = new Array(genotypes).fill(0)
+  deme.pop.forEach ((type) => ++counts[type])
+  fillPopBar (deme.popbar, counts, colors, hues)
+  fillBubbles (deme.bubbles, counts, colors)
 }
 
 var generation = 0

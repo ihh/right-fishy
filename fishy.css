@@ -40,27 +40,18 @@ body {
 }
 
 .mainland .popbar {
+    width: 498px;
     height: 100px;
-    padding: 5px;
 }
 
 .island .popbar {
+    width: 98px;
     height: 25px;
-    padding: 1px;
 }
 
-.popbar {
-    position: relative;
-
-    display: flex;
-    flex-direction: row;
-   
-    background-color: black;
-}
-
-.popbar .bar {
+.popbar canvas {
+    width: 100%;
     height: 100%;
-    background-color: red;
 }
 
 .params {
