@@ -21,9 +21,11 @@ window.onload = () => {
                          islandsContainer = $('<div class="islands">')),
                 $('<a href="https://github.com/ihh/right-fishy">').text('Source'))
   paramList.forEach ((param) => {
+    var urlParam = getUrlParameter (param.name)
+    var paramValue = urlParam.length ? parseFloat(urlParam) : param.value
     paramContainer.append ($('<div class="param">')
                            .append ($('<div class="label">').text (param.label),
-                                    param.input = $('<input type="number">').val (param.value)))
+                                    param.input = $('<input type="number">').val (paramValue)))
     var updateValue = () => {
       param.value = parseFloat (param.input.val())
       if (param.update)
@@ -287,4 +289,12 @@ var update = () => {
     timer = window.setTimeout (update, delay)
   }
 }
+
+// https://davidwalsh.name/query-string-javascript
+function getUrlParameter(name) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+};
 
