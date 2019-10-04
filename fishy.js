@@ -22,10 +22,11 @@ window.onload = () => {
                 $('<a href="https://github.com/ihh/right-fishy">').text('Source'))
   paramList.forEach ((param) => {
     var urlParam = getUrlParameter (param.name)
-    var paramValue = urlParam.length ? parseFloat(urlParam) : param.value
+    if (urlParam)
+      param.value = parseFloat(urlParam)
     paramContainer.append ($('<div class="param">')
                            .append ($('<div class="label">').text (param.label),
-                                    param.input = $('<input type="number">').val (paramValue)))
+                                    param.input = $('<input type="number">').val (param.value)))
     var updateValue = () => {
       param.value = parseFloat (param.input.val())
       if (param.update)
